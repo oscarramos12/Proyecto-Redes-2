@@ -5,6 +5,7 @@ import os
 import sys
 import random
 import numpy as np
+import time
 
 groups = {}
 fileTransferCondition = threading.Condition()
@@ -55,16 +56,20 @@ class Group:
 		return str1
 
 	def startDeck(self):
+		time.sleep(1)
 		random.shuffle(self.turnList)
 		random.shuffle(self.mainDeck)
 		self.userTurn = len(self.turnList)
 		for member in self.onlineMembers:	
+			print(self.clients[member])
 			arrSend = []
 			for i in range(20):
 				arrSend.append(self.mainDeck.pop(0))
-			print(arrSend,len(self.mainDeck))
-			self.clients[member].send(bytes(self.listToString(arrSend),'utf-8'))
-		print(self.onlineMembers)
+			strSend = self.listToString(arrSend)
+			print(strSend, type(strSend))
+			message_to_send = strSend.encode("UTF-8")
+			self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
+			self.clients[member].send(message_to_send)
 
 	def resetPile(self, pile):
 		for i in range(11):
@@ -73,30 +78,30 @@ class Group:
 			
 	def addToPile(self, card, pile):
 		if pile == "1":
-			if (self.pile1[len(self.pile1) - 1] == 11 and card == 12):
+			if ((self.pile1[len(self.pile1) - 1] == 11 and card == 12) or card == 99):
 					self.resetPile(self.pile1)
-			elif(self.pile1[len(self.pile1) - 1] + 1 == card):
+			elif((self.pile1[len(self.pile1) - 1] + 1 == card) or card == 99):
 				self.pile1.append(card)
 			else:
 				return "Invalid Move"
 		elif pile == "2":
-			if (self.pile2[len(self.pile2) - 1] == 11 and card == 12):
+			if ((self.pile2[len(self.pile2) - 1] == 11 and card == 12) or card == 99):
 				self.resetPile(self.pile2)
-			elif(self.pile2[len(self.pile2) - 1] + 1 == card):
+			elif((self.pile2[len(self.pile2) - 1] + 1 == card) or card == 99):
 				self.pile2.append(card)
 			else:
 				return "Invalid Move"
 		elif pile == "3":
-			if (self.pile3[len(self.pile3) - 1] == 11 and card == 12):
+			if ((self.pile3[len(self.pile3) - 1] == 11 and card == 12) or card == 99):
 				self.resetPile(self.pile3)
-			elif(self.pile3[len(self.pile3) - 1] + 1 == card):
+			elif((self.pile3[len(self.pile3) - 1] + 1 == card) or card == 99):
 				self.pile3.append(card)
 			else:
 				return "Invalid Move"
 		elif pile == "4":
-			if (self.pile4[len(self.pile4) - 1] == 11 and card == 12):
+			if ((self.pile4[len(self.pile4) - 1] == 11 and card == 12) or card == 99):
 				self.resetPile(self.pile4)
-			elif(self.pile4[len(self.pile4) - 1] + 1 == card):
+			elif((self.pile4[len(self.pile4) - 1] + 1 == card) or card == 99):
 				self.pile4.append(card)
 			else:
 				return "Invalid Move"
@@ -114,18 +119,13 @@ class Group:
 		if(user == self.turnList[self.userTurn]):
 			if(msg == "addPile"):
     				pass
-    		
-
-		
-    		
-
 				
 
 def pyconChat(client, username, groupname):
 	while True:
-		msg = client.recv(1024).decode("utf-8")
+		length_of_message = int.from_bytes(client.recv(2), byteorder='big')
+		msg = client.recv(length_of_message).decode("UTF-8")
 		if msg == "/viewRequests":
-			client.send(b"/viewRequests")
 			client.recv(1024).decode("utf-8")
 			if username == groups[groupname].admin:
 				client.send(b"/sendingData")
@@ -134,11 +134,9 @@ def pyconChat(client, username, groupname):
 			else:
 				client.send(b"You're not an admin.")
 		elif msg == "/approveRequest":
-			client.send(b"/approveRequest")
-			client.recv(1024).decode("utf-8")
 			if username == groups[groupname].admin:
-				client.send(b"/proceed")
-				usernameToApprove = client.recv(1024).decode("utf-8")
+				length_of_message = int.from_bytes(client.recv(2), byteorder='big')
+				usernameToApprove = client.recv(length_of_message).decode("UTF-8")
 				if usernameToApprove in groups[groupname].joinRequests:
 					groups[groupname].joinRequests.remove(usernameToApprove)
 					groups[groupname].allMembers.add(usernameToApprove)
@@ -160,18 +158,11 @@ def pyconChat(client, username, groupname):
 			print("User Disconnected:",username,"| Group:",groupname)
 			break
 		elif msg == "/messageSend":
-			client.send(b"/messageSend")
-			message = client.recv(1024).decode("utf-8")
+			#client.send(b"/messageSend")
+			length_of_message = int.from_bytes(client.recv(2), byteorder='big')
+			message = client.recv(length_of_message).decode("UTF-8")
+			#message = client.recv(1024).decode("utf-8")
 			groups[groupname].sendMessage(message,username)
-		elif msg == "/waitDisconnect":
-			client.send(b"/waitDisconnect")
-			del groups[groupname].waitClients[username]
-			print("Waiting Client:",username,"Disconnected")
-			break
-		elif msg == "/onlineMembers":
-			client.send(b"/onlineMembers")
-			client.recv(1024).decode("utf-8")
-			client.send(pickle.dumps(groups[groupname].onlineMembers))
 		elif (msg == "/startGame" and username == groups[groupname].admin):
 			groups[groupname].startDeck()
 			print("Game Start")
@@ -180,25 +171,28 @@ def pyconChat(client, username, groupname):
 
 
 def handshake(client):
-	username = client.recv(1024).decode("utf-8")
-	client.send(b"/sendGroupname")
+	length_of_message = int.from_bytes(client.recv(2), byteorder='big')
+	username = client.recv(length_of_message).decode("UTF-8")
+
+	#message_to_send = "bye".encode("UTF-8")
+	#client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+	#client.send(message_to_send)
+
+	length_of_message = int.from_bytes(client.recv(2), byteorder='big')
 	groupname = client.recv(1024).decode("utf-8")
 	if groupname in groups:
 		if username in groups[groupname].allMembers:
 			groups[groupname].connect(username,client)
-			client.send(b"/ready")
 			print("User Connected:",username,"| Group:",groupname)
 		else:
 			groups[groupname].joinRequests.add(username)
 			groups[groupname].waitClients[username] = client
 			groups[groupname].sendMessage(username+" has requested to join the group.","PyconChat")
-			client.send(b"/wait")
 			print("Join Request:",username,"| Group:",groupname)
 		threading.Thread(target=pyconChat, args=(client, username, groupname,)).start()
 	else:
 		groups[groupname] = Group(username,client)
 		threading.Thread(target=pyconChat, args=(client, username, groupname,)).start()
-		client.send(b"/adminReady")
 		print("New Group:",groupname,"| Admin:",username)
 
 def main():
