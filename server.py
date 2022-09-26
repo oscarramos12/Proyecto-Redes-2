@@ -60,13 +60,36 @@ class Group:
 				str1 += "," + str(ele)
 		return str1
 
+	def showPiles(self, username):
+		if(len(self.pile1) > 0):
+			toSend = "Pile 1: " + str(self.pile1[len(self.pile1) - 1]) + " - Necesita un: " + str(len(self.pile1)+1) + "\n"
+		else:
+			toSend = "Pile 1: null\n"
+		if(len(self.pile2) > 0):
+			toSend += "Pile 2: " + str(self.pile2[len(self.pile2) - 1]) + " - Necesita un: " + str(len(self.pile2)+1) + "\n"
+		else:
+			toSend += "Pile 2: null\n"
+		if(len(self.pile3) > 0):
+			toSend += "Pile 3: " + str(self.pile3[len(self.pile3) - 1]) + " - Necesita un: " + str(len(self.pile3)+1) + "\n"
+		else:
+			toSend += "Pile 3: null\n"
+		if(len(self.pile4) > 0):
+			toSend += "Pile 4: " + str(self.pile4[len(self.pile4) - 1]) + " - Necesita un: " + str(len(self.pile4)+1) + "\n"
+		else:
+			toSend += "Pile 4: null\n"
+
+		message_to_send = toSend.encode("UTF-8")
+		self.clients[username].send(len(message_to_send).to_bytes(2, byteorder='big'))
+		self.clients[username].send(message_to_send)
+
+
+
 	def startDeck(self):
 		
 		random.shuffle(self.turnList)
 		random.shuffle(self.mainDeck)
 		self.userTurn = len(self.turnList) - 1
 		for member in self.onlineMembers:	
-			time.sleep(1)
 			print(self.clients[member])
 			arrSend = []
 			for i in range(20):
@@ -77,63 +100,87 @@ class Group:
 			self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
 			self.clients[member].send(message_to_send)
 
-			message_to_send = "Es el turno de: " + self.turnList[self.userTurn] + "\n Usar /turn:accion:cardFrom:cardTo para mover cartas (descartar/poner en pila) \n Use /help para ver acciones"
+			message_to_send = "Es el turno de: " + self.turnList[self.userTurn] + "\n Usar /turn:accion:cardFrom-card:cardTo para mover cartas (descartar/poner en pila) \n Use /help para ver acciones"
 			message_to_send = message_to_send.encode("UTF-8")
 			self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
 			self.clients[member].send(message_to_send)
 		
 
 	def resetPile(self, pile):
-		for i in range(11):
-			self.mainDeck.append(pile.pop(i))
-			random.shuffle(self.mainDeck)
+		for i in range(len(pile)):
+			self.mainDeck.append(pile.pop())
+		random.shuffle(self.mainDeck)
 			
 	def addToPile(self, card, pile):
-		if pile == "1":
-			if ((self.pile1[len(self.pile1) - 1] == 11 and card == 12) or card == 99):
-					self.resetPile(self.pile1)
-			elif((self.pile1[len(self.pile1) - 1] + 1 == card) or card == 99):
-				self.pile1.append(card)
-			else:
-				return "Invalid Move"
-		elif pile == "2":
-			if ((self.pile2[len(self.pile2) - 1] == 11 and card == 12) or card == 99):
-				self.resetPile(self.pile2)
-			elif((self.pile2[len(self.pile2) - 1] + 1 == card) or card == 99):
-				self.pile2.append(card)
-			else:
-				return "Invalid Move"
-		elif pile == "3":
-			if ((self.pile3[len(self.pile3) - 1] == 11 and card == 12) or card == 99):
-				self.resetPile(self.pile3)
-			elif((self.pile3[len(self.pile3) - 1] + 1 == card) or card == 99):
-				self.pile3.append(card)
-			else:
-				return "Invalid Move"
-		elif pile == "4":
-			if ((self.pile4[len(self.pile4) - 1] == 11 and card == 12) or card == 99):
-				self.resetPile(self.pile4)
-			elif((self.pile4[len(self.pile4) - 1] + 1 == card) or card == 99):
-				self.pile4.append(card)
-			else:
-				return "Invalid Move"
+		try:
+			if pile == "1":
+				if(len(self.pile1) == 0 and (card == "1" or card == "99")):
+					self.pile1.append(card)
+					return "Carta añadida"
+				elif ((len(self.pile1) == 11) and (card == "12" or card == "99")):
+						self.resetPile(self.pile1)
+						return "Carta añadida"
+				elif((len(self.pile1) > 0) and (len(self.pile1) + 1 == int(card)) or card == "99"):
+					self.pile1.append(card)
+					return "Carta añadida"
+				else:
+					return "Movida Invalida"
+			elif pile == "2":
+				if(len(self.pile2) == 0 and (card == "1" or card == "99")):
+					self.pile2.append(card)
+					return "Carta añadida"
+				elif ((len(self.pile2) == 11) and (card == "12" or card == "99")):
+					self.resetPile(self.pile2)
+					return "Carta añadida"
+				elif((len(self.pile2) > 0) and (len(self.pile2) + 1 == int(card)) or card == "99"):
+					self.pile2.append(card)
+					return "Carta añadida"
+				else:
+					return "Movida Invalida"
+			elif pile == "3":
+				if(len(self.pile3) == 0 and (card == "1" or card == "99")):
+					self.pile3.append(card)
+					return "Carta añadida"
+				elif ((len(self.pile3) == 11) and (card == "12" or card == "99")):
+					self.resetPile(self.pile3)
+					return "Carta añadida"
+				elif((len(self.pile3) > 0) and (len(self.pile3) + 1 == int(card)) or card == "99"):
+					self.pile3.append(card)
+					return "Carta añadida"
+				else:
+					return "Movida Invalida"
+			elif pile == "4":
+				if(len(self.pile4) == 0 and (card == "1" or card == "99")):
+					self.pile4.append(card)
+					return "Carta añadida"
+				elif ((len(self.pile4) == 11) and (card == "12" or card == "99")):
+					self.resetPile(self.pile4)
+					return "Carta añadida"
+				elif((len(self.pile4) > 0) and (len(self.pile4) + 1 == int(card)) or card == "99"):
+					self.pile4.append(card)
+					return "Carta añadida"
+				else:
+					return "Movida Invalida"
+		except:
+			return "Movida Invalida"
+		return "Movida Invalida"
 
 	def sendHandCards(self, user):
-		
-		message_to_send = "/handSize".encode("UTF-8")
-		self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
-		self.clients[user].send(message_to_send)
+			
+			message_to_send = "/handSize".encode("UTF-8")
+			self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
+			self.clients[user].send(message_to_send)
 
-		length_of_message = int.from_bytes(self.clients[user].recv(2), byteorder='big')
-		handSize = self.clients[user].recv(length_of_message).decode("UTF-8")
+			length_of_message = int.from_bytes(self.clients[user].recv(2), byteorder='big')
+			handSize = self.clients[user].recv(length_of_message).decode("UTF-8")
 
-		sendCards = []
-		print(handSize)
-		for i in range (5 - int(handSize)):
-			sendCards.append(self.mainDeck.pop(0))
-		message_to_send = self.listToString(sendCards).encode("UTF-8")
-		self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
-		self.clients[user].send(message_to_send)
+			sendCards = []
+			print(handSize)
+			for i in range (5 - int(handSize)):
+				sendCards.append(self.mainDeck.pop(0))
+			message_to_send = self.listToString(sendCards).encode("UTF-8")
+			self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
+			self.clients[user].send(message_to_send)
 
 
 	def endTurn(self):
@@ -153,8 +200,32 @@ class Group:
 				self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
 				self.clients[member].send(message_to_send)
 
+	def removeTop(self, username):
+		message_to_send = "/removeLastTop".encode("UTF-8")
+		self.clients[username].send(len(message_to_send).to_bytes(2, byteorder='big'))
+		self.clients[username].send(message_to_send)
+
 	def turn(self,msg,username):
-		pass
+		try:
+			parts = msg.split(":")
+			sendStatus = self.addToPile(parts[1],parts[2])
+			if(sendStatus != "Movida Invalida"):
+				message_to_send = sendStatus.encode("UTF-8")
+				self.clients[username].send(len(message_to_send).to_bytes(2, byteorder='big'))
+				self.clients[username].send(message_to_send)
+				self.showPiles(username)
+				self.removeTop(username)
+			else:
+				message_to_send = sendStatus.encode("UTF-8")
+				self.clients[username].send(len(message_to_send).to_bytes(2, byteorder='big'))
+				self.clients[username].send(message_to_send)
+		except:
+			message_to_send = "Movida Invalida".encode("UTF-8")
+			self.clients[username].send(len(message_to_send).to_bytes(2, byteorder='big'))
+			self.clients[username].send(message_to_send)
+
+		
+			
 				
 
 def pyconChat(client, username, groupname):
@@ -203,13 +274,9 @@ def pyconChat(client, username, groupname):
 			groups[groupname].startDeck()
 			print("Game Start")
 		elif(("/turn" in msg) and username == groups[groupname].turnList[groups[groupname].userTurn]):
-			error = groups[groupname].turn(msg,username)
-			if(error == "Comando Invalido"):
-				message_to_send = error.encode("UTF-8")
-				client.send(len(message_to_send).to_bytes(2, byteorder='big'))
-				client.send(message_to_send)
+			groups[groupname].turn(msg, username)
 		elif(msg == "/help"):
-			help = "Acciones: \nx)discard \nx)toPile \nx)seeCards \nx)sendHand \n-----------\ncardFrom validos: \nx)myDeck-X \nx)myHand-X \nx)myPile-X-X \n-----------\ncardTo validos: \nx)mainPile-X-X \nx)myPile-X-X"
+			help = "Acciones: \nx)discard:X:X \nx)toPile \nx)seeCards \nx)sendHand \nx)serverPiles \n-----------\ncardFrom validos: \nx)deck \nx)hand-X \nx)pile-X \n-----------\ncardTo validos: \nx)pile-X"
 			message_to_send = help.encode("UTF-8")
 			client.send(len(message_to_send).to_bytes(2, byteorder='big'))
 			client.send(message_to_send)
@@ -217,6 +284,12 @@ def pyconChat(client, username, groupname):
 			groups[groupname].sendHandCards(username)
 		elif(msg == "/endTurn"):
 			groups[groupname].endTurn()
+		elif(msg == "/serverPiles"):
+			groups[groupname].showPiles(username)
+		elif(msg == "/playerWin"):
+			winner = "El ganador es : " + username + "!!!!!!!!"
+			groups[groupname].sendMessage(winner, "Server")
+			break
 			
 		else:
     			groups[groupname].sendMessage(msg,username)
@@ -248,10 +321,7 @@ def handshake(client):
 		print("New Group:",groupname,"| Admin:",username)
 
 def main():
-	''' if len(sys.argv) < 3:
-		print("USAGE: python server.py <IP> <Port>")
-		print("EXAMPLE: python server.py localhost 8000")
-		return '''
+
 	listenSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	#listenSocket.bind((sys.argv[1], int(sys.argv[2])))
 	listenSocket.bind(("localhost", int(8000)))
