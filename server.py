@@ -34,6 +34,8 @@ class Group:
 	def disconnect(self,username):
 		self.onlineMembers.remove(username)
 		del self.clients[username]
+		self.turnList.remove(username)
+		print(self.turnList)
 	
 	def connect(self,username,client):
 		self.turnList.append(username)
@@ -44,7 +46,10 @@ class Group:
 	def sendMessage(self,message,username):
 		for member in self.onlineMembers:
 			if member != username:
-				self.clients[member].send(bytes(username + ": " + message,"utf-8"))
+				message_to_send = username +": "+ message
+				message_to_send = message_to_send.encode("UTF-8")
+				self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
+				self.clients[member].send(message_to_send)
 
 	def listToString(self,s):   
 		str1 = ""
@@ -56,20 +61,27 @@ class Group:
 		return str1
 
 	def startDeck(self):
-		time.sleep(1)
+		
 		random.shuffle(self.turnList)
 		random.shuffle(self.mainDeck)
-		self.userTurn = len(self.turnList)
+		self.userTurn = len(self.turnList) - 1
 		for member in self.onlineMembers:	
+			time.sleep(1)
 			print(self.clients[member])
 			arrSend = []
 			for i in range(20):
 				arrSend.append(self.mainDeck.pop(0))
 			strSend = self.listToString(arrSend)
-			print(strSend, type(strSend))
+			print(self.turnList)
 			message_to_send = strSend.encode("UTF-8")
 			self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
 			self.clients[member].send(message_to_send)
+
+			message_to_send = "Es el turno de: " + self.turnList[self.userTurn] + "\n Usar /turn:accion:cardFrom:cardTo para mover cartas (descartar/poner en pila) \n Use /help para ver acciones"
+			message_to_send = message_to_send.encode("UTF-8")
+			self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
+			self.clients[member].send(message_to_send)
+		
 
 	def resetPile(self, pile):
 		for i in range(11):
@@ -106,19 +118,43 @@ class Group:
 			else:
 				return "Invalid Move"
 
-	def sendHandCards(self, handSize, user):
+	def sendHandCards(self, user):
+		
+		message_to_send = "/handSize".encode("UTF-8")
+		self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
+		self.clients[user].send(message_to_send)
+
+		length_of_message = int.from_bytes(self.clients[user].recv(2), byteorder='big')
+		handSize = self.clients[user].recv(length_of_message).decode("UTF-8")
+
 		sendCards = []
-		for i in range (5 - handSize):
+		print(handSize)
+		for i in range (5 - int(handSize)):
 			sendCards.append(self.mainDeck.pop(0))
-		self.clients[user].send(bytes(self.listToString(sendCards),'utf-8'))
+		message_to_send = self.listToString(sendCards).encode("UTF-8")
+		self.clients[user].send(len(message_to_send).to_bytes(2, byteorder='big'))
+		self.clients[user].send(message_to_send)
 
-	def resetTurn(self):
-		self.userTurn = len(self.onlineMembers)
 
-	def turn(self,user,msg):
-		if(user == self.turnList[self.userTurn]):
-			if(msg == "addPile"):
-    				pass
+	def endTurn(self):
+		if(len(self.onlineMembers) - 1 <= 0):
+			self.userTurn = len(self.onlineMembers) - 1
+			for member in self.onlineMembers:
+				message_to_send = "Es el turno de: " + self.turnList[self.userTurn]
+				message_to_send = message_to_send.encode("UTF-8")
+				self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
+				self.clients[member].send(message_to_send)
+					
+		else:
+			self.userTurn = self.userTurn-1
+			for member in self.onlineMembers:
+				message_to_send = "Es el turno de: " + self.turnList[self.userTurn]
+				message_to_send = message_to_send.encode("UTF-8")
+				self.clients[member].send(len(message_to_send).to_bytes(2, byteorder='big'))
+				self.clients[member].send(message_to_send)
+
+	def turn(self,msg,username):
+		pass
 				
 
 def pyconChat(client, username, groupname):
@@ -128,11 +164,14 @@ def pyconChat(client, username, groupname):
 		if msg == "/viewRequests":
 			client.recv(1024).decode("utf-8")
 			if username == groups[groupname].admin:
-				client.send(b"/sendingData")
 				client.recv(1024)
-				client.send(pickle.dumps(groups[groupname].joinRequests))
+				message_to_send = pickle.dumps(groups[groupname].joinRequests).encode("UTF-8")
+				client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+				client.send(message_to_send)
 			else:
-				client.send(b"You're not an admin.")
+				message_to_send = "No es admin".encode("UTF-8")
+				client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+				client.send(message_to_send)
 		elif msg == "/approveRequest":
 			if username == groups[groupname].admin:
 				length_of_message = int.from_bytes(client.recv(2), byteorder='big')
@@ -141,33 +180,46 @@ def pyconChat(client, username, groupname):
 					groups[groupname].joinRequests.remove(usernameToApprove)
 					groups[groupname].allMembers.add(usernameToApprove)
 					if usernameToApprove in groups[groupname].waitClients:
-						groups[groupname].waitClients[usernameToApprove].send(b"/accepted")
 						groups[groupname].connect(usernameToApprove,groups[groupname].waitClients[usernameToApprove])
 						del groups[groupname].waitClients[usernameToApprove]
 					print("Member Approved:",usernameToApprove,"| Lobby:",groupname)
-					client.send(b"User has been added to the lobby.")
+					message_to_send = "Solicitud Aceptada".encode("UTF-8")
+					client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+					client.send(message_to_send)
 					
 				else:
-					client.send(b"The user has not requested to join.")
+					message_to_send = "Usuario Invalido".encode("UTF-8")
+					client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+					client.send(message_to_send)
 			else:
-				client.send(b"You're not an admin.")
+				message_to_send = "No es admin".encode("UTF-8")
+				client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+				client.send(message_to_send)
 		elif msg == "/disconnect":
-			client.send(b"/disconnect")
-			client.recv(1024).decode("utf-8")
 			groups[groupname].disconnect(username)
 			print("User Disconnected:",username,"| Group:",groupname)
 			break
-		elif msg == "/messageSend":
-			#client.send(b"/messageSend")
-			length_of_message = int.from_bytes(client.recv(2), byteorder='big')
-			message = client.recv(length_of_message).decode("UTF-8")
-			#message = client.recv(1024).decode("utf-8")
-			groups[groupname].sendMessage(message,username)
 		elif (msg == "/startGame" and username == groups[groupname].admin):
 			groups[groupname].startDeck()
 			print("Game Start")
+		elif(("/turn" in msg) and username == groups[groupname].turnList[groups[groupname].userTurn]):
+			error = groups[groupname].turn(msg,username)
+			if(error == "Comando Invalido"):
+				message_to_send = error.encode("UTF-8")
+				client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+				client.send(message_to_send)
+		elif(msg == "/help"):
+			help = "Acciones: \nx)discard \nx)toPile \nx)seeCards \nx)sendHand \n-----------\ncardFrom validos: \nx)myDeck-X \nx)myHand-X \nx)myPile-X-X \n-----------\ncardTo validos: \nx)mainPile-X-X \nx)myPile-X-X"
+			message_to_send = help.encode("UTF-8")
+			client.send(len(message_to_send).to_bytes(2, byteorder='big'))
+			client.send(message_to_send)
+		elif(msg == "/sendHand" and username == groups[groupname].turnList[groups[groupname].userTurn]):
+			groups[groupname].sendHandCards(username)
+		elif(msg == "/endTurn"):
+			groups[groupname].endTurn()
+			
 		else:
-			print("UNIDENTIFIED COMMAND:",msg)
+    			groups[groupname].sendMessage(msg,username)
 
 
 def handshake(client):
@@ -187,11 +239,11 @@ def handshake(client):
 		else:
 			groups[groupname].joinRequests.add(username)
 			groups[groupname].waitClients[username] = client
-			groups[groupname].sendMessage(username+" has requested to join the group.","PyconChat")
 			print("Join Request:",username,"| Group:",groupname)
 		threading.Thread(target=pyconChat, args=(client, username, groupname,)).start()
 	else:
 		groups[groupname] = Group(username,client)
+		groups[groupname].turnList.append(username)
 		threading.Thread(target=pyconChat, args=(client, username, groupname,)).start()
 		print("New Group:",groupname,"| Admin:",username)
 
