@@ -30,7 +30,7 @@ public class App {
                 admin= scan.nextLine();
             }
             if(admin.equals("y")){
-                System.out.println("Ingrese su accion:\n1)Iniciar el juego \n2)Permitir Ingreso \n3)Ver solicitudes de ingreso \n4)Desconectar");
+                System.out.println("Ingrese su accion:\n1)Iniciar el juego \n2)Permitir Ingreso \n4)Desconectar");
                 String mensaje= scan.nextLine();
                 if(mensaje.equals("1")){
                     out.writeUTF("/startGame");
@@ -46,7 +46,7 @@ public class App {
                     System.out.println(msg);
                 }
                 else if(mensaje.equals("3")){
-                    out.writeUTF("/viewRequests");
+                    //out.writeUTF("/viewRequests");
                 }
                 else if(mensaje.equals("4")){
                     out.writeUTF("/disconnect");
